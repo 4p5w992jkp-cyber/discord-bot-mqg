@@ -1,106 +1,26 @@
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Collection,
-  REST,
-  Routes
-} = require("discord.js");
-
-const general = require("./commands/general");
-const moderation = require("./commands/moderation");
-const protection = require("./commands/protection");
-const tickets = require("./commands/tickets");
+const { Client, GatewayIntentBits } = require('discord.js');
+const http = require('http');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
-  ],
-  partials: [Partials.Channel]
+  ]
 });
 
-const commands = [
-  ...general,
-  ...moderation,
-  ...protection,
-  ...tickets
-];
+// Port لـ Render
+const PORT = process.env.PORT || 3000;
 
-client.commands = new Collection();
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Discord Bot is online!');
+}).listen(PORT, '0.0.0.0', () => {
+  console.log(`Web server running on port ${PORT}`);
+});
 
-for (const command of commands) {
-  client.commands.set(command.data.name, command);
-}
-
-client.once("ready", async () => {
+client.once('ready', () => {
   console.log(`✅ البوت شغال: ${client.user.tag}`);
-
-  const rest = new REST({ version: "10" }).setToken(
-    process.env.DISCORD_TOKEN
-  );
-
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(
-        client.user.id,
-        process.env.GUILD_ID
-      ),
-      {
-        body: commands.map(command => command.data.toJSON())
-      }
-    );
-
-    console.log("✅ تم تسجيل أوامر البوت");
-  } catch (error) {
-    console.error("❌ خطأ في تسجيل الأوامر:", error);
-  }
-
-  client.user.setActivity("Server Protection", {
-    type: 3
-  });
-});
-
-client.on("interactionCreate", async interaction => {
-  if (interaction.isChatInputCommand()) {
-    const command = client.commands.get(interaction.commandName);
-
-    if (!command) return;
-
-    try {
-      await command.execute(interaction);
-    } catch (error) {
-      console.error(error);
-
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: "❌ حدث خطأ أثناء تنفيذ الأمر.",
-          ephemeral: true
-        });
-      } else {
-        await interaction.reply({
-          content: "❌ حدث خطأ أثناء تنفيذ الأمر.",
-          ephemeral: true
-        });
-      }
-    }
-  }
-
-  if (interaction.isButton()) {
-    if (interaction.customId === "close_ticket") {
-      await interaction.reply("🔒 سيتم إغلاق التذكرة...");
-
-      setTimeout(async () => {
-        try {
-          await interaction.channel.delete();
-        } catch (error) {
-          console.error(error);
-        }
-      }, 2000);
-    }
-  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
