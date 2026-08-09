@@ -2,8 +2,15 @@ const {
   Client,
   GatewayIntentBits,
   Partials,
-  Collection
+  Collection,
+  REST,
+  Routes
 } = require("discord.js");
+
+const general = require("./commands/general");
+const moderation = require("./commands/moderation");
+const protection = require("./commands/protection");
+const tickets = require("./commands/tickets");
 
 const client = new Client({
   intents: [
@@ -15,39 +22,85 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
+const commands = [
+  ...general,
+  ...moderation,
+  ...protection,
+  ...tickets
+];
+
 client.commands = new Collection();
 
-client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
+for (const command of commands) {
+  client.commands.set(command.data.name, command);
+}
+
+client.once("ready", async () => {
+  console.log(`✅ البوت شغال: ${client.user.tag}`);
+
+  const rest = new REST({ version: "10" }).setToken(
+    process.env.DISCORD_TOKEN
+  );
+
+  try {
+    await rest.put(
+      Routes.applicationGuildCommands(
+        client.user.id,
+        process.env.GUILD_ID
+      ),
+      {
+        body: commands.map(command => command.data.toJSON())
+      }
+    );
+
+    console.log("✅ تم تسجيل أوامر البوت");
+  } catch (error) {
+    console.error("❌ خطأ في تسجيل الأوامر:", error);
+  }
+
   client.user.setActivity("Server Protection", {
     type: 3
   });
 });
 
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
+client.on("interactionCreate", async interaction => {
+  if (interaction.isChatInputCommand()) {
+    const command = client.commands.get(interaction.commandName);
 
-  if (message.content === "!ping") {
-    await message.reply(`🏓 Pong! ${client.ws.ping}ms`);
+    if (!command) return;
+
+    try {
+      await command.execute(interaction);
+    } catch (error) {
+      console.error(error);
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          content: "❌ حدث خطأ أثناء تنفيذ الأمر.",
+          ephemeral: true
+        });
+      } else {
+        await interaction.reply({
+          content: "❌ حدث خطأ أثناء تنفيذ الأمر.",
+          ephemeral: true
+        });
+      }
+    }
   }
 
-  if (message.content === "!server") {
-    await message.reply(
-      `📊 **${message.guild.name}**\n` +
-      `👥 Members: ${message.guild.memberCount}\n` +
-      `🆔 ID: ${message.guild.id}`
-    );
-  }
+  if (interaction.isButton()) {
+    if (interaction.customId === "close_ticket") {
+      await interaction.reply("🔒 سيتم إغلاق التذكرة...");
 
-  if (message.content === "!help") {
-    await message.reply(
-      `**🤖 أوامر البوت**\n\n` +
-      `\`!ping\` - سرعة البوت\n` +
-      `\`!server\` - معلومات السيرفر\n` +
-      `\`!help\` - قائمة الأوامر`
-    );
+      setTimeout(async () => {
+        try {
+          await interaction.channel.delete();
+        } catch (error) {
+          console.error(error);
+        }
+      }, 2000);
+    }
   }
 });
 
-// ضع التوكن في Environment Variables باسم DISCORD_TOKEN
 client.login(process.env.DISCORD_TOKEN);
