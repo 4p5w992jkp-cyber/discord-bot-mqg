@@ -1,5 +1,7 @@
-const { Client, GatewayIntentBits } = require('discord.js');
-const http = require('http');
+console.log("🔥 INDEX.JS STARTED");
+
+const { Client, GatewayIntentBits } = require("discord.js");
+const http = require("http");
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -9,16 +11,15 @@ const PORT = process.env.PORT || 3000;
 
 http.createServer((req, res) => {
   res.writeHead(200);
-  res.end('Bot is running!');
-}).listen(PORT, '0.0.0.0');
+  res.end("Discord Bot is online!");
+}).listen(PORT, "0.0.0.0", () => {
+  console.log(`🌐 Server running on port ${PORT}`);
+});
 
-client.once('ready', () => {
-  console.log('==============================');
-  console.log('✅ BOT CONNECTED SUCCESSFULLY');
-  console.log(`🤖 ${client.user.tag}`);
-  console.log('==============================');
+client.once("ready", () => {
+  console.log(`✅ BOT CONNECTED: ${client.user.tag}`);
 });
 
 client.login(process.env.DISCORD_TOKEN)
-  .then(() => console.log('🔑 Login successful'))
-  .catch(error => console.error('❌ Login failed:', error));
+  .then(() => console.log("🔑 Login successful"))
+  .catch(err => console.error("❌ Login failed:", err));
